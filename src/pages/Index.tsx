@@ -1031,6 +1031,108 @@ const INIT_ORDERS: Order[] = [
 
 type OrdersView = "orders" | "clients";
 
+// ─── ClientCard ───────────────────────────────────────────
+function ClientCard({ client, clientOrders, clientTotal, editing,
+  ecName, ecPhone, ecAddress, ecNote,
+  setEcName, setEcPhone, setEcAddress, setEcNote,
+  onEdit, onSave, onCancel, onDelete, onOpenOrder }: {
+  client: Client;
+  clientOrders: Order[];
+  clientTotal: number;
+  editing: boolean;
+  ecName: string; ecPhone: string; ecAddress: string; ecNote: string;
+  setEcName: (v: string) => void; setEcPhone: (v: string) => void;
+  setEcAddress: (v: string) => void; setEcNote: (v: string) => void;
+  onEdit: () => void; onSave: () => void; onCancel: () => void; onDelete: () => void;
+  onOpenOrder: (o: Order) => void;
+}) {
+  const [histOpen, setHistOpen] = useState(false);
+  const doneOrders = clientOrders.filter((o) => o.status === "done").length;
+
+  return (
+    <div className="client-card">
+      {editing ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <input className="add-field" placeholder="Имя Фамилия *" value={ecName} onChange={(e) => setEcName(e.target.value)} />
+          <input className="add-field" placeholder="Телефон" value={ecPhone} onChange={(e) => setEcPhone(e.target.value)} />
+          <input className="add-field" placeholder="Адрес" value={ecAddress} onChange={(e) => setEcAddress(e.target.value)} />
+          <input className="add-field" placeholder="Заметка" value={ecNote} onChange={(e) => setEcNote(e.target.value)} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="pass-cancel" onClick={onCancel}>Отмена</button>
+            <button className="pass-confirm" onClick={onSave}>Сохранить</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+            <div>
+              <div className="order-detail-name" style={{ fontSize: 15 }}>{client.name}</div>
+              {client.phone && <div className="order-meta" style={{ marginTop: 3 }}><Icon name="Phone" size={12} style={{ color: "#9ca3af" }} />{client.phone}</div>}
+              {client.address && <div className="order-meta"><Icon name="MapPin" size={12} style={{ color: "#9ca3af" }} />{client.address}</div>}
+              {client.note && <div className="order-note" style={{ marginTop: 4 }}>{client.note}</div>}
+            </div>
+            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+              <button className="icon-btn" style={{ opacity: 1 }} onClick={onEdit}><Icon name="Pencil" size={13} /></button>
+              <button className="icon-btn" style={{ color: "#f87171", opacity: 1 }} onClick={onDelete}><Icon name="Trash2" size={13} /></button>
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div className="client-stats-row">
+            <div className="client-stat">
+              <span className="client-stat-num">{clientOrders.length}</span>
+              <span className="client-stat-label">заказов</span>
+            </div>
+            <div className="client-stat">
+              <span className="client-stat-num" style={{ color: "#16a34a" }}>{doneOrders}</span>
+              <span className="client-stat-label">выполнено</span>
+            </div>
+            <div className="client-stat" style={{ flex: 2 }}>
+              <span className="client-stat-num" style={{ color: "#2563eb", fontSize: 15 }}>{fmt(clientTotal)}</span>
+              <span className="client-stat-label">общая сумма</span>
+            </div>
+          </div>
+
+          {/* History toggle */}
+          {clientOrders.length > 0 && (
+            <button className="client-hist-toggle" onClick={() => setHistOpen((v) => !v)}>
+              <Icon name="History" size={13} />
+              История заказов
+              <Icon name={histOpen ? "ChevronUp" : "ChevronDown"} size={13} style={{ marginLeft: "auto" }} />
+            </button>
+          )}
+
+          {histOpen && (
+            <div className="client-hist-list">
+              {clientOrders.map((o) => {
+                const raw = o.items.reduce((s, i) => s + i.price * i.qty, 0);
+                const total = raw * (1 - (o.discount || 0) / 100);
+                const m = STATUS_META[o.status];
+                return (
+                  <div key={o.id} className="client-hist-item" onClick={() => onOpenOrder(o)}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: "#374151", fontWeight: 500 }}>
+                        {o.items.length > 0 ? o.items[0].name + (o.items.length > 1 ? ` +${o.items.length - 1}` : "") : "Без позиций"}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 1 }}>{o.createdAt}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: m.color, background: m.bg, padding: "2px 7px", borderRadius: 999 }}>{m.label}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{fmt(total)}</span>
+                      <Icon name="ChevronRight" size={13} style={{ color: "#d1d5db" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function OrdersSection({ onOpenOrder }: { onOpenOrder: (order: Order) => void }) {
   const [orders, setOrders] = useState<Order[]>(INIT_ORDERS);
   const [clients, setClients] = useState<Client[]>(INIT_CLIENTS);
@@ -1240,39 +1342,30 @@ function OrdersSection({ onOpenOrder }: { onOpenOrder: (order: Order) => void })
         )}
 
         <div className="space-y-2">
-          {clients.map((c) => (
-            <div key={c.id} className="order-detail-card">
-              {editClientId === c.id ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <input className="add-field" placeholder="Имя Фамилия *" value={ecName} onChange={(e) => setEcName(e.target.value)} />
-                  <input className="add-field" placeholder="Телефон" value={ecPhone} onChange={(e) => setEcPhone(e.target.value)} />
-                  <input className="add-field" placeholder="Адрес" value={ecAddress} onChange={(e) => setEcAddress(e.target.value)} />
-                  <input className="add-field" placeholder="Заметка" value={ecNote} onChange={(e) => setEcNote(e.target.value)} />
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button className="pass-cancel" onClick={() => setEditClientId(null)}>Отмена</button>
-                    <button className="pass-confirm" onClick={saveEditClient}>Сохранить</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-                    <div className="order-detail-name" style={{ fontSize: 15 }}>{c.name}</div>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button className="icon-btn" style={{ opacity: 1 }} onClick={() => startEditClient(c)}>
-                        <Icon name="Pencil" size={13} />
-                      </button>
-                      <button className="icon-btn" style={{ color: "#f87171", opacity: 1 }} onClick={() => deleteClient(c.id)}>
-                        <Icon name="Trash2" size={13} />
-                      </button>
-                    </div>
-                  </div>
-                  {c.phone && <div className="order-meta"><Icon name="Phone" size={12} style={{ color: "#9ca3af" }} />{c.phone}</div>}
-                  {c.address && <div className="order-meta"><Icon name="MapPin" size={12} style={{ color: "#9ca3af" }} />{c.address}</div>}
-                  {c.note && <div className="order-note" style={{ marginTop: 2 }}>{c.note}</div>}
-                </>
-              )}
-            </div>
-          ))}
+          {clients.map((c) => {
+            const clientOrders = orders.filter((o) => o.client === c.name);
+            const clientTotal = clientOrders.reduce((s, o) => {
+              const raw = o.items.reduce((ss, i) => ss + i.price * i.qty, 0);
+              return s + raw * (1 - (o.discount || 0) / 100);
+            }, 0);
+            const [histOpen, setHistOpen] = [false, () => {}]; // placeholder, handled below
+            return (
+              <ClientCard
+                key={c.id}
+                client={c}
+                clientOrders={clientOrders}
+                clientTotal={clientTotal}
+                editing={editClientId === c.id}
+                ecName={ecName} ecPhone={ecPhone} ecAddress={ecAddress} ecNote={ecNote}
+                setEcName={setEcName} setEcPhone={setEcPhone} setEcAddress={setEcAddress} setEcNote={setEcNote}
+                onEdit={() => startEditClient(c)}
+                onSave={saveEditClient}
+                onCancel={() => setEditClientId(null)}
+                onDelete={() => deleteClient(c.id)}
+                onOpenOrder={onOpenOrder}
+              />
+            );
+          })}
           {clients.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">Нет клиентов</div>}
         </div>
 

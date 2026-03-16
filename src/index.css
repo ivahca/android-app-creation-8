@@ -1252,3 +1252,98 @@
 .invoice-action-btn:hover {
   opacity: 0.88;
 }
+
+/* ── Client card ────────────────────────────────────────── */
+.client-card {
+  background: #fff;
+  border: 1px solid #f3f4f6;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.client-stats-row {
+  display: flex;
+  gap: 0;
+  border: 1px solid #f3f4f6;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f9fafb;
+}
+
+.client-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 10px;
+  border-right: 1px solid #f3f4f6;
+  gap: 2px;
+}
+
+.client-stat:last-child {
+  border-right: none;
+}
+
+.client-stat-num {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1;
+}
+
+.client-stat-label {
+  font-size: 10px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 500;
+}
+
+.client-hist-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s;
+}
+
+.client-hist-toggle:hover {
+  background: #f9fafb;
+}
+
+.client-hist-list {
+  border: 1px solid #f3f4f6;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.client-hist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f9fafb;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.client-hist-item:last-child {
+  border-bottom: none;
+}
+
+.client-hist-item:hover {
+  background: #f9fafb;
+}
