@@ -1800,7 +1800,7 @@ export default function Index() {
       <header className="app-header">
         <div className="app-logo">
           <Icon name="LayoutDashboard" size={20} style={{ color: "#2563eb" }} />
-          <span>Мой планировщик</span>
+          <span>Прейскурант</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span className="app-date">
