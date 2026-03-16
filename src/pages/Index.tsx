@@ -1150,6 +1150,9 @@ function OrdersSection({ onOpenOrder }: { onOpenOrder: (order: Order) => void })
   // new order form
   const [newMode, setNewMode] = useState<"select" | "manual">("select");
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [inlineNewClient, setInlineNewClient] = useState(false);
+  const [inNcName, setInNcName] = useState("");
+  const [inNcPhone, setInNcPhone] = useState("");
   const [newClient, setNewClient] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newAddress, setNewAddress] = useState("");
@@ -1192,6 +1195,7 @@ function OrdersSection({ onOpenOrder }: { onOpenOrder: (order: Order) => void })
   function resetNewForm() {
     setNewClient(""); setNewPhone(""); setNewAddress(""); setNewNote("");
     setSelectedClientId(""); setNewMode("select");
+    setInlineNewClient(false); setInNcName(""); setInNcPhone("");
   }
 
   function deleteOrder(id: string) { setOrders(orders.filter((o) => o.id !== id)); }
@@ -1273,11 +1277,7 @@ function OrdersSection({ onOpenOrder }: { onOpenOrder: (order: Order) => void })
             </div>
             {newMode === "select" ? (
               <>
-                {clients.length === 0 ? (
-                  <div className="text-sm text-gray-400 text-center py-3">
-                    Нет клиентов — добавьте в разделе «Клиенты»
-                  </div>
-                ) : (
+                {clients.length > 0 && (
                   <div className="client-pick-list">
                     {clients.map((c) => (
                       <button key={c.id}
@@ -1288,6 +1288,27 @@ function OrdersSection({ onOpenOrder }: { onOpenOrder: (order: Order) => void })
                       </button>
                     ))}
                   </div>
+                )}
+                {inlineNewClient ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                    <input autoFocus className="add-field" placeholder="Имя Фамилия *" value={inNcName} onChange={(e) => setInNcName(e.target.value)} />
+                    <input className="add-field" placeholder="Телефон" value={inNcPhone} onChange={(e) => setInNcPhone(e.target.value)} />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="pass-cancel" style={{ flex: 1 }} onClick={() => { setInlineNewClient(false); setInNcName(""); setInNcPhone(""); }}>Отмена</button>
+                      <button className="pass-confirm" style={{ flex: 1 }} onClick={() => {
+                        if (!inNcName.trim()) return;
+                        const nc: Client = { id: uid(), name: inNcName.trim(), phone: inNcPhone.trim(), address: "", note: "" };
+                        setClients((prev) => [...prev, nc]);
+                        setSelectedClientId(nc.id);
+                        setInlineNewClient(false); setInNcName(""); setInNcPhone("");
+                      }}>Добавить</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#2563eb", background: "none", border: "none", cursor: "pointer", marginTop: 4, padding: "2px 0" }}
+                    onClick={() => setInlineNewClient(true)}>
+                    <Icon name="Plus" size={14} /> Новый клиент
+                  </button>
                 )}
               </>
             ) : (
