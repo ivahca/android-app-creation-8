@@ -294,7 +294,7 @@ def handler(event: dict, context) -> dict:
         method="POST"
     )
 
-    with urllib.request.urlopen(req, timeout=25) as resp:
+    with urllib.request.urlopen(req, timeout=28) as resp:
         result = json.loads(resp.read())
 
     reply = result["choices"][0]["message"]["content"]
