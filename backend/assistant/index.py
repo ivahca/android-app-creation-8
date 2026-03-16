@@ -285,7 +285,7 @@ def handler(event: dict, context) -> dict:
     }
 
     req = urllib.request.Request(
-        "https://api.openai.com/v1/chat/completions",
+        "https://api.aitunnel.ru/v1/chat/completions",
         data=json.dumps(payload).encode(),
         headers={
             "Content-Type": "application/json",
