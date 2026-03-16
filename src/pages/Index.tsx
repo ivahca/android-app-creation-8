@@ -318,117 +318,60 @@ function HabitsSection() {
   );
 }
 
-// ─── Finance ─────────────────────────────────────────────
-function FinanceSection() {
-  const [transactions, setTransactions] = useState<Transaction[]>(INIT_TRANSACTIONS);
-  const [newLabel, setNewLabel] = useState("");
-  const [newAmount, setNewAmount] = useState("");
-  const [newType, setNewType] = useState<"income" | "expense">("expense");
-  const [newCat, setNewCat] = useState(FIN_CATEGORIES[0].id);
-  const [filterCat, setFilterCat] = useState<string>("all");
+// ─── Смета ───────────────────────────────────────────────
+type SmetaItem = { id: string; name: string; unit?: string; qty: number; price: number };
 
-  const income = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-  const expense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-  const balance = income - expense;
+function fmt(n: number) {
+  return n.toLocaleString("ru-RU") + " ₽";
+}
 
-  function addTx() {
-    const a = parseFloat(newAmount);
-    if (!newLabel.trim() || isNaN(a) || a <= 0) return;
-    setTransactions([{ id: uid(), label: newLabel.trim(), amount: a, type: newType, categoryId: newCat }, ...transactions]);
-    setNewLabel("");
-    setNewAmount("");
-  }
-
-  function deleteTx(id: string) {
-    setTransactions(transactions.filter((t) => t.id !== id));
-  }
-
-  const filtered = filterCat === "all" ? transactions : transactions.filter((t) => t.categoryId === filterCat);
-
-  function fmt(n: number) {
-    return n.toLocaleString("ru-RU") + " ₽";
-  }
+function SmetaSection({ items, onDelete, onQtyChange }: {
+  items: SmetaItem[];
+  onDelete: (id: string) => void;
+  onQtyChange: (id: string, qty: number) => void;
+}) {
+  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-3">
-        <div className="fin-card fin-balance">
-          <span className="fin-label">Баланс</span>
-          <span className="fin-amount" style={{ color: balance >= 0 ? "#111827" : "#ef4444" }}>{fmt(balance)}</span>
-        </div>
-        <div className="fin-card">
-          <span className="fin-label">Доходы</span>
-          <span className="fin-amount" style={{ color: "#16a34a" }}>{fmt(income)}</span>
-        </div>
-        <div className="fin-card">
-          <span className="fin-label">Расходы</span>
-          <span className="fin-amount" style={{ color: "#ef4444" }}>{fmt(expense)}</span>
-        </div>
+    <div className="space-y-5">
+      {/* Итог */}
+      <div className="fin-card fin-balance">
+        <span className="fin-label">Итого по смете</span>
+        <span className="fin-amount" style={{ color: "#111827" }}>{fmt(total)}</span>
       </div>
 
-      <div className="add-row flex-wrap gap-2">
-        <input
-          className="add-input flex-1 min-w-32"
-          placeholder="Описание…"
-          value={newLabel}
-          onChange={(e) => setNewLabel(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addTx()}
-        />
-        <input
-          className="add-input w-28"
-          placeholder="Сумма"
-          type="number"
-          value={newAmount}
-          onChange={(e) => setNewAmount(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addTx()}
-        />
-        <select className="add-select" value={newType} onChange={(e) => setNewType(e.target.value as "income" | "expense")}>
-          <option value="expense">Расход</option>
-          <option value="income">Доход</option>
-        </select>
-        <select className="add-select" value={newCat} onChange={(e) => setNewCat(e.target.value)}>
-          {FIN_CATEGORIES.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <button className="add-btn" onClick={addTx}>
-          <Icon name="Plus" size={16} />
-        </button>
-      </div>
-
-      <div className="filter-row">
-        <button className={`filter-pill ${filterCat === "all" ? "active" : ""}`} onClick={() => setFilterCat("all")}>Все</button>
-        {FIN_CATEGORIES.map((c) => (
-          <button
-            key={c.id}
-            className={`filter-pill ${filterCat === c.id ? "active" : ""}`}
-            style={filterCat === c.id ? { borderColor: c.color, color: c.color } : {}}
-            onClick={() => setFilterCat(c.id)}
-          >
-            {c.name}
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-1">
-        {filtered.map((tx) => {
-          const cat = getCat(FIN_CATEGORIES, tx.categoryId);
-          return (
-            <div key={tx.id} className="task-row">
-              <span className="w-2 h-2 rounded-full flex-shrink-0 mt-0.5" style={{ background: cat?.color }} />
-              <span className="task-text">{tx.label}</span>
-              <div className="task-actions">
-                <span className="font-semibold text-sm" style={{ color: tx.type === "income" ? "#16a34a" : "#ef4444" }}>
-                  {tx.type === "income" ? "+" : "−"}{fmt(tx.amount)}
+      {items.length === 0 ? (
+        <div className="text-center py-12 text-gray-400 text-sm">
+          <Icon name="ClipboardList" size={32} style={{ color: "#e5e7eb", margin: "0 auto 10px" }} />
+          <div>Смета пуста</div>
+          <div className="text-xs mt-1">Добавьте услуги из раздела «Прайс»</div>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {items.map((item) => (
+            <div key={item.id} className="task-row" style={{ alignItems: "flex-start", paddingTop: 10, paddingBottom: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="task-text" style={{ fontSize: 13 }}>{item.name}</div>
+                {item.unit && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{item.unit}</div>}
+              </div>
+              <div className="task-actions" style={{ opacity: 1, alignItems: "center", gap: 6 }}>
+                {/* qty stepper */}
+                <div className="qty-stepper">
+                  <button className="qty-btn" onClick={() => onQtyChange(item.id, Math.max(1, item.qty - 1))}>−</button>
+                  <span className="qty-val">{item.qty}</span>
+                  <button className="qty-btn" onClick={() => onQtyChange(item.id, item.qty + 1)}>+</button>
+                </div>
+                <span className="font-semibold text-sm" style={{ color: "#2563eb", minWidth: 72, textAlign: "right" }}>
+                  {fmt(item.price * item.qty)}
                 </span>
-                <button className="icon-btn" style={{ color: "#f87171" }} onClick={() => deleteTx(tx.id)}>
+                <button className="icon-btn" style={{ color: "#f87171" }} onClick={() => onDelete(item.id)}>
                   <Icon name="Trash2" size={13} />
                 </button>
               </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -709,9 +652,10 @@ const PRICE_DATA: PriceGroup[] = [
   },
 ];
 
-function PriceSection() {
+function PriceSection({ onAdd }: { onAdd: (item: SmetaItem) => void }) {
   const [search, setSearch] = useState("");
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(["rozetki"]));
+  const [added, setAdded] = useState<Set<string>>(new Set());
 
   const query = search.toLowerCase().trim();
 
@@ -731,11 +675,29 @@ function PriceSection() {
     });
   }
 
+  function parsePrice(priceStr: string): number {
+    const match = priceStr.replace(/\s/g, "").match(/\d+/);
+    return match ? parseInt(match[0]) : 0;
+  }
+
+  function handleAdd(item: PriceItem, groupId: string) {
+    const key = groupId + item.name;
+    const smetaItem: SmetaItem = {
+      id: uid(),
+      name: item.name,
+      unit: item.unit,
+      qty: 1,
+      price: parsePrice(item.price),
+    };
+    onAdd(smetaItem);
+    setAdded((prev) => new Set(prev).add(key));
+    setTimeout(() => setAdded((prev) => { const n = new Set(prev); n.delete(key); return n; }), 1500);
+  }
+
   const totalServices = PRICE_DATA.reduce((s, g) => s + g.items.length, 0);
 
   return (
     <div className="space-y-4">
-      {/* Stats row */}
       <div className="flex gap-3">
         <div className="stat-card">
           <span className="stat-num">{PRICE_DATA.length}</span>
@@ -747,7 +709,6 @@ function PriceSection() {
         </div>
       </div>
 
-      {/* Search */}
       <div className="add-row">
         <Icon name="Search" size={15} style={{ color: "#9ca3af", flexShrink: 0 }} />
         <input
@@ -756,9 +717,7 @@ function PriceSection() {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            if (e.target.value.trim()) {
-              setOpenGroups(new Set(PRICE_DATA.map((g) => g.id)));
-            }
+            if (e.target.value.trim()) setOpenGroups(new Set(PRICE_DATA.map((g) => g.id)));
           }}
         />
         {search && (
@@ -768,7 +727,6 @@ function PriceSection() {
         )}
       </div>
 
-      {/* Groups */}
       <div className="space-y-2">
         {filtered.map((group) => {
           const isOpen = openGroups.has(group.id) || !!query;
@@ -783,15 +741,27 @@ function PriceSection() {
               </button>
               {isOpen && (
                 <div className="price-items">
-                  {group.items.map((item, i) => (
-                    <div key={i} className="price-row">
-                      <span className="price-name">{item.name}</span>
-                      <div className="price-right">
-                        {item.unit && <span className="price-unit">{item.unit}</span>}
-                        <span className="price-value">{item.price}</span>
+                  {group.items.map((item, i) => {
+                    const key = group.id + item.name;
+                    const justAdded = added.has(key);
+                    return (
+                      <div key={i} className="price-row">
+                        <span className="price-name">{item.name}</span>
+                        <div className="price-right">
+                          {item.unit && <span className="price-unit">{item.unit}</span>}
+                          <span className="price-value">{item.price}</span>
+                          <button
+                            className="price-add-btn"
+                            style={justAdded ? { background: "#16a34a", color: "#fff" } : {}}
+                            onClick={() => handleAdd(item, group.id)}
+                            title="Добавить в смету"
+                          >
+                            <Icon name={justAdded ? "Check" : "Plus"} size={12} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -806,15 +776,28 @@ function PriceSection() {
 }
 
 // ─── Root ─────────────────────────────────────────────────
-type Tab = "finance" | "price";
+type Tab = "smeta" | "price";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: "finance", label: "Финансы", icon: "Wallet" },
+  { id: "smeta", label: "Стоимость услуг", icon: "ClipboardList" },
   { id: "price", label: "Прайс", icon: "ListOrdered" },
 ];
 
 export default function Index() {
-  const [tab, setTab] = useState<Tab>("finance");
+  const [tab, setTab] = useState<Tab>("smeta");
+  const [smetaItems, setSmetaItems] = useState<SmetaItem[]>([]);
+
+  function addToSmeta(item: SmetaItem) {
+    setSmetaItems((prev) => [{ ...item, id: uid() }, ...prev]);
+  }
+
+  function deleteFromSmeta(id: string) {
+    setSmetaItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  function changeQty(id: string, qty: number) {
+    setSmetaItems((prev) => prev.map((i) => i.id === id ? { ...i, qty } : i));
+  }
 
   return (
     <div className="app-root">
@@ -837,13 +820,22 @@ export default function Index() {
           >
             <Icon name={t.icon} size={16} />
             <span>{t.label}</span>
+            {t.id === "smeta" && smetaItems.length > 0 && (
+              <span className="smeta-badge">{smetaItems.length}</span>
+            )}
           </button>
         ))}
       </nav>
 
       <main className="app-content">
-        {tab === "finance" && <FinanceSection />}
-        {tab === "price" && <PriceSection />}
+        {tab === "smeta" && (
+          <SmetaSection
+            items={smetaItems}
+            onDelete={deleteFromSmeta}
+            onQtyChange={changeQty}
+          />
+        )}
+        {tab === "price" && <PriceSection onAdd={(item) => { addToSmeta(item); setTab("smeta"); }} />}
       </main>
     </div>
   );
