@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 
 // ─── Types ───────────────────────────────────────────────
@@ -1134,8 +1134,15 @@ function ClientCard({ client, clientOrders, clientTotal, editing,
 }
 
 function OrdersSection({ onOpenOrder }: { onOpenOrder: (order: Order) => void }) {
-  const [orders, setOrders] = useState<Order[]>(INIT_ORDERS);
-  const [clients, setClients] = useState<Client[]>(INIT_CLIENTS);
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try { const s = localStorage.getItem("orders"); return s ? JSON.parse(s) : INIT_ORDERS; } catch { return INIT_ORDERS; }
+  });
+  const [clients, setClients] = useState<Client[]>(() => {
+    try { const s = localStorage.getItem("clients"); return s ? JSON.parse(s) : INIT_CLIENTS; } catch { return INIT_CLIENTS; }
+  });
+
+  useEffect(() => { localStorage.setItem("orders", JSON.stringify(orders)); }, [orders]);
+  useEffect(() => { localStorage.setItem("clients", JSON.stringify(clients)); }, [clients]);
   const [view, setView] = useState<OrdersView>("orders");
   const [showNew, setShowNew] = useState(false);
   const [filterStatus, setFilterStatus] = useState<OrderStatus | "all">("all");
