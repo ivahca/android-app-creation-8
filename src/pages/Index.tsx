@@ -325,16 +325,30 @@ function fmt(n: number) {
   return n.toLocaleString("ru-RU") + " ₽";
 }
 
-function SmetaSection({ items, onDelete, onQtyChange }: {
+function SmetaSection({ items, onDelete, onQtyChange, onPriceChange }: {
   items: SmetaItem[];
   onDelete: (id: string) => void;
   onQtyChange: (id: string, qty: number) => void;
+  onPriceChange: (id: string, price: number) => void;
 }) {
+  const [editingPrice, setEditingPrice] = useState<string | null>(null);
+  const [editPriceVal, setEditPriceVal] = useState("");
+
   const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+
+  function startEditPrice(item: SmetaItem) {
+    setEditingPrice(item.id);
+    setEditPriceVal(item.price > 0 ? String(item.price) : "");
+  }
+
+  function savePrice(id: string) {
+    const val = parseFloat(editPriceVal);
+    if (!isNaN(val) && val >= 0) onPriceChange(id, val);
+    setEditingPrice(null);
+  }
 
   return (
     <div className="space-y-5">
-      {/* Итог */}
       <div className="fin-card fin-balance">
         <span className="fin-label">Итого по смете</span>
         <span className="fin-amount" style={{ color: "#111827" }}>{fmt(total)}</span>
@@ -355,15 +369,41 @@ function SmetaSection({ items, onDelete, onQtyChange }: {
                 {item.unit && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{item.unit}</div>}
               </div>
               <div className="task-actions" style={{ opacity: 1, alignItems: "center", gap: 6 }}>
-                {/* qty stepper */}
                 <div className="qty-stepper">
                   <button className="qty-btn" onClick={() => onQtyChange(item.id, Math.max(1, item.qty - 1))}>−</button>
                   <span className="qty-val">{item.qty}</span>
                   <button className="qty-btn" onClick={() => onQtyChange(item.id, item.qty + 1)}>+</button>
                 </div>
-                <span className="font-semibold text-sm" style={{ color: "#2563eb", minWidth: 72, textAlign: "right" }}>
-                  {fmt(item.price * item.qty)}
-                </span>
+
+                {item.price === 0 ? (
+                  editingPrice === item.id ? (
+                    <input
+                      autoFocus
+                      className="price-edit-input"
+                      placeholder="Сумма"
+                      type="number"
+                      value={editPriceVal}
+                      onChange={(e) => setEditPriceVal(e.target.value)}
+                      onBlur={() => savePrice(item.id)}
+                      onKeyDown={(e) => { if (e.key === "Enter") savePrice(item.id); if (e.key === "Escape") setEditingPrice(null); }}
+                    />
+                  ) : (
+                    <button className="price-zero-btn" onClick={() => startEditPrice(item)}>
+                      <Icon name="Pencil" size={11} />
+                      Указать цену
+                    </button>
+                  )
+                ) : (
+                  <span
+                    className="font-semibold text-sm"
+                    style={{ color: "#2563eb", minWidth: 72, textAlign: "right", cursor: "pointer" }}
+                    onClick={() => startEditPrice(item)}
+                    title="Нажмите, чтобы изменить цену"
+                  >
+                    {fmt(item.price * item.qty)}
+                  </span>
+                )}
+
                 <button className="icon-btn" style={{ color: "#f87171" }} onClick={() => onDelete(item.id)}>
                   <Icon name="Trash2" size={13} />
                 </button>
@@ -799,6 +839,10 @@ export default function Index() {
     setSmetaItems((prev) => prev.map((i) => i.id === id ? { ...i, qty } : i));
   }
 
+  function changePrice(id: string, price: number) {
+    setSmetaItems((prev) => prev.map((i) => i.id === id ? { ...i, price } : i));
+  }
+
   return (
     <div className="app-root">
       <header className="app-header">
@@ -833,6 +877,7 @@ export default function Index() {
             items={smetaItems}
             onDelete={deleteFromSmeta}
             onQtyChange={changeQty}
+            onPriceChange={changePrice}
           />
         )}
         {tab === "price" && <PriceSection onAdd={(item) => { addToSmeta(item); setTab("smeta"); }} />}
