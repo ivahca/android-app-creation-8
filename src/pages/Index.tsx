@@ -969,6 +969,15 @@ function PriceSection({ onAdd, editMode }: { onAdd: (item: SmetaItem) => void; e
   );
 }
 
+// ─── Clients ─────────────────────────────────────────────
+type Client = { id: string; name: string; phone: string; address: string; note: string };
+
+const INIT_CLIENTS: Client[] = [
+  { id: "c1", name: "Иванов Сергей", phone: "+7 900 123-45-67", address: "ул. Ленина, 12, кв. 5", note: "Позвонить за день до выезда" },
+  { id: "c2", name: "Петрова Анна", phone: "+7 911 987-65-43", address: "пр. Мира, 8, кв. 14", note: "" },
+  { id: "c3", name: "Сидоров Михаил", phone: "+7 922 555-00-11", address: "ул. Садовая, 3, оф. 201", note: "" },
+];
+
 // ─── Orders ──────────────────────────────────────────────
 type OrderStatus = "new" | "in_progress" | "done" | "cancelled";
 
@@ -1020,157 +1029,257 @@ const INIT_ORDERS: Order[] = [
   },
 ];
 
+type OrdersView = "orders" | "clients";
+
 function OrdersSection({ onOpenOrder }: { onOpenOrder: (order: Order) => void }) {
   const [orders, setOrders] = useState<Order[]>(INIT_ORDERS);
+  const [clients, setClients] = useState<Client[]>(INIT_CLIENTS);
+  const [view, setView] = useState<OrdersView>("orders");
   const [showNew, setShowNew] = useState(false);
   const [filterStatus, setFilterStatus] = useState<OrderStatus | "all">("all");
+
+  // new order form
+  const [newMode, setNewMode] = useState<"select" | "manual">("select");
+  const [selectedClientId, setSelectedClientId] = useState("");
   const [newClient, setNewClient] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newAddress, setNewAddress] = useState("");
   const [newNote, setNewNote] = useState("");
 
-  const filtered = filterStatus === "all"
-    ? orders
-    : orders.filter((o) => o.status === filterStatus);
+  // new client form
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [ncName, setNcName] = useState("");
+  const [ncPhone, setNcPhone] = useState("");
+  const [ncAddress, setNcAddress] = useState("");
+  const [ncNote, setNcNote] = useState("");
+
+  // edit client
+  const [editClientId, setEditClientId] = useState<string | null>(null);
+  const [ecName, setEcName] = useState("");
+  const [ecPhone, setEcPhone] = useState("");
+  const [ecAddress, setEcAddress] = useState("");
+  const [ecNote, setEcNote] = useState("");
+
+  const filtered = filterStatus === "all" ? orders : orders.filter((o) => o.status === filterStatus);
 
   function createOrder() {
-    if (!newClient.trim()) return;
+    let client = newClient.trim(), phone = newPhone.trim(), address = newAddress.trim(), note = newNote.trim();
+    if (newMode === "select") {
+      const c = clients.find((c) => c.id === selectedClientId);
+      if (!c) return;
+      client = c.name; phone = c.phone; address = c.address; note = c.note;
+    }
+    if (!client) return;
     const order: Order = {
-      id: uid(), client: newClient.trim(), phone: newPhone.trim(),
-      address: newAddress.trim(), status: "new", items: [],
-      createdAt: new Date().toISOString().slice(0, 10), note: newNote.trim(), discount: 0,
+      id: uid(), client, phone, address, status: "new", items: [],
+      createdAt: new Date().toISOString().slice(0, 10), note, discount: 0,
     };
     setOrders([order, ...orders]);
-    setNewClient(""); setNewPhone(""); setNewAddress(""); setNewNote("");
+    resetNewForm();
     setShowNew(false);
     onOpenOrder(order);
   }
 
-  function deleteOrder(id: string) {
-    setOrders(orders.filter((o) => o.id !== id));
+  function resetNewForm() {
+    setNewClient(""); setNewPhone(""); setNewAddress(""); setNewNote("");
+    setSelectedClientId(""); setNewMode("select");
   }
 
-  function cycleStatus(id: string) {
-    const cycle: OrderStatus[] = ["new", "in_progress", "done", "cancelled"];
-    setOrders(orders.map((o) => {
-      if (o.id !== id) return o;
-      const next = cycle[(cycle.indexOf(o.status) + 1) % cycle.length];
-      return { ...o, status: next };
-    }));
+  function deleteOrder(id: string) { setOrders(orders.filter((o) => o.id !== id)); }
+
+  function addClient() {
+    if (!ncName.trim()) return;
+    setClients([...clients, { id: uid(), name: ncName.trim(), phone: ncPhone.trim(), address: ncAddress.trim(), note: ncNote.trim() }]);
+    setNcName(""); setNcPhone(""); setNcAddress(""); setNcNote("");
+    setShowNewClient(false);
   }
 
-  const total = orders.reduce((s, o) => s + o.items.reduce((ss, i) => ss + i.price * i.qty, 0), 0);
+  function deleteClient(id: string) { setClients(clients.filter((c) => c.id !== id)); }
+
+  function startEditClient(c: Client) {
+    setEditClientId(c.id); setEcName(c.name); setEcPhone(c.phone); setEcAddress(c.address); setEcNote(c.note);
+  }
+
+  function saveEditClient() {
+    setClients(clients.map((c) => c.id === editClientId ? { ...c, name: ecName, phone: ecPhone, address: ecAddress, note: ecNote } : c));
+    setEditClientId(null);
+  }
+
+  const total = orders.reduce((s, o) => s + o.items.reduce((ss, i) => ss + i.price * i.qty, 0) * (1 - (o.discount || 0) / 100), 0);
   const inWork = orders.filter((o) => o.status === "in_progress").length;
   const newCount = orders.filter((o) => o.status === "new").length;
 
   return (
     <div className="space-y-5">
-      {/* Stats */}
-      <div className="flex gap-3">
-        <div className="stat-card">
-          <span className="stat-num">{orders.length}</span>
-          <span className="stat-label">Заказов</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-num" style={{ color: "#d97706" }}>{inWork}</span>
-          <span className="stat-label">В работе</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-num" style={{ color: "#2563eb" }}>{newCount}</span>
-          <span className="stat-label">Новых</span>
-        </div>
+
+      {/* Sub-tabs */}
+      <div className="sub-tabs">
+        <button className={`sub-tab ${view === "orders" ? "active" : ""}`} onClick={() => setView("orders")}>
+          <Icon name="Briefcase" size={14} /> Заказы
+        </button>
+        <button className={`sub-tab ${view === "clients" ? "active" : ""}`} onClick={() => setView("clients")}>
+          <Icon name="Users" size={14} /> Клиенты
+          <span className="smeta-badge" style={{ background: "#6b7280" }}>{clients.length}</span>
+        </button>
       </div>
 
-      {/* Total */}
-      <div className="fin-card fin-balance">
-        <span className="fin-label">Общая сумма заказов</span>
-        <span className="fin-amount">{fmt(total)}</span>
-      </div>
-
-      {/* Filters */}
-      <div className="filter-row">
-        <button className={`filter-pill ${filterStatus === "all" ? "active" : ""}`} onClick={() => setFilterStatus("all")}>Все</button>
-        {(Object.entries(STATUS_META) as [OrderStatus, typeof STATUS_META[OrderStatus]][]).map(([key, m]) => (
-          <button
-            key={key}
-            className={`filter-pill ${filterStatus === key ? "active" : ""}`}
-            style={filterStatus === key ? { borderColor: m.color, color: m.color, background: m.bg } : {}}
-            onClick={() => setFilterStatus(key)}
-          >{m.label}</button>
-        ))}
-      </div>
-
-      {/* New order form */}
-      {showNew && (
-        <div className="order-new-form">
-          <div className="order-new-title">Новый заказ</div>
-          <input className="add-field" placeholder="Имя клиента *" value={newClient} onChange={(e) => setNewClient(e.target.value)} />
-          <input className="add-field" placeholder="Телефон" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
-          <input className="add-field" placeholder="Адрес объекта" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} />
-          <input className="add-field" placeholder="Заметка" value={newNote} onChange={(e) => setNewNote(e.target.value)} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="pass-cancel" onClick={() => setShowNew(false)}>Отмена</button>
-            <button className="pass-confirm" onClick={createOrder}>Создать заказ</button>
-          </div>
+      {/* ── ЗАКАЗЫ ── */}
+      {view === "orders" && (<>
+        <div className="flex gap-3">
+          <div className="stat-card"><span className="stat-num">{orders.length}</span><span className="stat-label">Заказов</span></div>
+          <div className="stat-card"><span className="stat-num" style={{ color: "#d97706" }}>{inWork}</span><span className="stat-label">В работе</span></div>
+          <div className="stat-card"><span className="stat-num" style={{ color: "#2563eb" }}>{newCount}</span><span className="stat-label">Новых</span></div>
         </div>
-      )}
 
-      {/* Order cards */}
-      <div className="space-y-2">
-        {filtered.map((order) => {
-          const m = STATUS_META[order.status];
-          const rawTotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
-          const orderTotal = rawTotal * (1 - (order.discount || 0) / 100);
-          return (
-            <div key={order.id} className="order-card" onClick={() => onOpenOrder(order)}>
-              <div className="order-card-top">
-                <div className="order-client">
-                  <Icon name="User" size={14} style={{ color: "#9ca3af", flexShrink: 0 }} />
-                  <span>{order.client}</span>
-                </div>
-                <span className="order-status-badge" style={{ color: m.color, background: m.bg }}>
-                  {m.label}
-                </span>
-              </div>
-              {order.phone && (
-                <div className="order-meta">
-                  <Icon name="Phone" size={12} style={{ color: "#9ca3af" }} />
-                  {order.phone}
-                </div>
-              )}
-              {order.address && (
-                <div className="order-meta">
-                  <Icon name="MapPin" size={12} style={{ color: "#9ca3af" }} />
-                  {order.address}
-                </div>
-              )}
-              <div className="order-card-bottom">
-                <span className="order-items-count">
-                  <Icon name="Package" size={12} />
-                  {order.items.length} позиций
-                </span>
-                {order.discount > 0 && (
-                  <span className="discount-badge">−{order.discount}%</span>
-                )}
-                <span className="order-total">{fmt(orderTotal)}</span>
-                <button className="icon-btn" style={{ color: "#f87171", opacity: 1 }}
-                  onClick={(e) => { e.stopPropagation(); deleteOrder(order.id); }}>
-                  <Icon name="Trash2" size={13} />
-                </button>
-              </div>
-              {order.note && <div className="order-note">{order.note}</div>}
+        <div className="fin-card fin-balance">
+          <span className="fin-label">Общая сумма заказов</span>
+          <span className="fin-amount">{fmt(total)}</span>
+        </div>
+
+        <div className="filter-row">
+          <button className={`filter-pill ${filterStatus === "all" ? "active" : ""}`} onClick={() => setFilterStatus("all")}>Все</button>
+          {(Object.entries(STATUS_META) as [OrderStatus, typeof STATUS_META[OrderStatus]][]).map(([key, m]) => (
+            <button key={key} className={`filter-pill ${filterStatus === key ? "active" : ""}`}
+              style={filterStatus === key ? { borderColor: m.color, color: m.color, background: m.bg } : {}}
+              onClick={() => setFilterStatus(key)}>{m.label}</button>
+          ))}
+        </div>
+
+        {showNew && (
+          <div className="order-new-form">
+            <div className="order-new-title">Новый заказ</div>
+            <div className="sub-tabs" style={{ marginBottom: 4 }}>
+              <button className={`sub-tab ${newMode === "select" ? "active" : ""}`} onClick={() => setNewMode("select")}>Выбрать клиента</button>
+              <button className={`sub-tab ${newMode === "manual" ? "active" : ""}`} onClick={() => setNewMode("manual")}>Ввести вручную</button>
             </div>
-          );
-        })}
-        {filtered.length === 0 && (
-          <div className="text-center py-10 text-gray-400 text-sm">Нет заказов</div>
+            {newMode === "select" ? (
+              <>
+                {clients.length === 0 ? (
+                  <div className="text-sm text-gray-400 text-center py-3">
+                    Нет клиентов — добавьте в разделе «Клиенты»
+                  </div>
+                ) : (
+                  <div className="client-pick-list">
+                    {clients.map((c) => (
+                      <button key={c.id}
+                        className={`client-pick-item ${selectedClientId === c.id ? "selected" : ""}`}
+                        onClick={() => setSelectedClientId(c.id)}>
+                        <span className="font-medium text-sm">{c.name}</span>
+                        {c.phone && <span className="text-xs text-gray-400">{c.phone}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <input className="add-field" placeholder="Имя Фамилия *" value={newClient} onChange={(e) => setNewClient(e.target.value)} />
+                <input className="add-field" placeholder="Телефон" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
+                <input className="add-field" placeholder="Адрес объекта" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} />
+                <input className="add-field" placeholder="Заметка" value={newNote} onChange={(e) => setNewNote(e.target.value)} />
+              </>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button className="pass-cancel" onClick={() => { setShowNew(false); resetNewForm(); }}>Отмена</button>
+              <button className="pass-confirm" onClick={createOrder}>Создать заказ</button>
+            </div>
+          </div>
         )}
-      </div>
 
-      {/* FAB */}
-      <button className="fab-btn" onClick={() => setShowNew(true)}>
-        <Icon name="Plus" size={20} />
-      </button>
+        <div className="space-y-2">
+          {filtered.map((order) => {
+            const m = STATUS_META[order.status];
+            const rawTotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
+            const orderTotal = rawTotal * (1 - (order.discount || 0) / 100);
+            return (
+              <div key={order.id} className="order-card" onClick={() => onOpenOrder(order)}>
+                <div className="order-card-top">
+                  <div className="order-client">
+                    <Icon name="User" size={14} style={{ color: "#9ca3af", flexShrink: 0 }} />
+                    <span>{order.client}</span>
+                  </div>
+                  <span className="order-status-badge" style={{ color: m.color, background: m.bg }}>{m.label}</span>
+                </div>
+                {order.phone && <div className="order-meta"><Icon name="Phone" size={12} style={{ color: "#9ca3af" }} />{order.phone}</div>}
+                {order.address && <div className="order-meta"><Icon name="MapPin" size={12} style={{ color: "#9ca3af" }} />{order.address}</div>}
+                <div className="order-card-bottom">
+                  <span className="order-items-count"><Icon name="Package" size={12} />{order.items.length} позиций</span>
+                  {order.discount > 0 && <span className="discount-badge">−{order.discount}%</span>}
+                  <span className="order-total">{fmt(orderTotal)}</span>
+                  <button className="icon-btn" style={{ color: "#f87171", opacity: 1 }}
+                    onClick={(e) => { e.stopPropagation(); deleteOrder(order.id); }}>
+                    <Icon name="Trash2" size={13} />
+                  </button>
+                </div>
+                {order.note && <div className="order-note">{order.note}</div>}
+              </div>
+            );
+          })}
+          {filtered.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">Нет заказов</div>}
+        </div>
+
+        <button className="fab-btn" onClick={() => setShowNew(true)}>
+          <Icon name="Plus" size={20} />
+        </button>
+      </>)}
+
+      {/* ── КЛИЕНТЫ ── */}
+      {view === "clients" && (<>
+        {showNewClient && (
+          <div className="order-new-form">
+            <div className="order-new-title">Новый клиент</div>
+            <input autoFocus className="add-field" placeholder="Имя Фамилия *" value={ncName} onChange={(e) => setNcName(e.target.value)} />
+            <input className="add-field" placeholder="Телефон" value={ncPhone} onChange={(e) => setNcPhone(e.target.value)} />
+            <input className="add-field" placeholder="Адрес" value={ncAddress} onChange={(e) => setNcAddress(e.target.value)} />
+            <input className="add-field" placeholder="Заметка" value={ncNote} onChange={(e) => setNcNote(e.target.value)} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="pass-cancel" onClick={() => setShowNewClient(false)}>Отмена</button>
+              <button className="pass-confirm" onClick={addClient}>Добавить</button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {clients.map((c) => (
+            <div key={c.id} className="order-detail-card">
+              {editClientId === c.id ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input className="add-field" placeholder="Имя Фамилия *" value={ecName} onChange={(e) => setEcName(e.target.value)} />
+                  <input className="add-field" placeholder="Телефон" value={ecPhone} onChange={(e) => setEcPhone(e.target.value)} />
+                  <input className="add-field" placeholder="Адрес" value={ecAddress} onChange={(e) => setEcAddress(e.target.value)} />
+                  <input className="add-field" placeholder="Заметка" value={ecNote} onChange={(e) => setEcNote(e.target.value)} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="pass-cancel" onClick={() => setEditClientId(null)}>Отмена</button>
+                    <button className="pass-confirm" onClick={saveEditClient}>Сохранить</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                    <div className="order-detail-name" style={{ fontSize: 15 }}>{c.name}</div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button className="icon-btn" style={{ opacity: 1 }} onClick={() => startEditClient(c)}>
+                        <Icon name="Pencil" size={13} />
+                      </button>
+                      <button className="icon-btn" style={{ color: "#f87171", opacity: 1 }} onClick={() => deleteClient(c.id)}>
+                        <Icon name="Trash2" size={13} />
+                      </button>
+                    </div>
+                  </div>
+                  {c.phone && <div className="order-meta"><Icon name="Phone" size={12} style={{ color: "#9ca3af" }} />{c.phone}</div>}
+                  {c.address && <div className="order-meta"><Icon name="MapPin" size={12} style={{ color: "#9ca3af" }} />{c.address}</div>}
+                  {c.note && <div className="order-note" style={{ marginTop: 2 }}>{c.note}</div>}
+                </>
+              )}
+            </div>
+          ))}
+          {clients.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">Нет клиентов</div>}
+        </div>
+
+        <button className="fab-btn" onClick={() => setShowNewClient(true)}>
+          <Icon name="Plus" size={20} />
+        </button>
+      </>)}
     </div>
   );
 }
@@ -1360,7 +1469,103 @@ function OrderDetail({ order, onBack, onAddFromPrice }: {
         <Icon name="ListOrdered" size={15} />
         Добавить из прайса
       </button>
+
+      {/* Send invoice */}
+      <SendInvoiceButton order={{ ...order, client: editClient, phone: editPhone, address: editAddress, items, discount }} />
     </div>
+  );
+}
+
+// ─── Send Invoice ─────────────────────────────────────────
+function SendInvoiceButton({ order }: { order: Order }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const rawTotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
+  const discountAmt = rawTotal * (order.discount || 0) / 100;
+  const total = rawTotal - discountAmt;
+
+  function buildText() {
+    const lines = [
+      `📋 СЧЁТ НА ОПЛАТУ`,
+      ``,
+      `Клиент: ${order.client}`,
+      order.phone ? `Телефон: ${order.phone}` : "",
+      order.address ? `Адрес: ${order.address}` : "",
+      `Дата: ${order.createdAt}`,
+      ``,
+      `─────────────────────`,
+      ...order.items.map((i) => `• ${i.name}${i.unit ? ` (${i.unit})` : ""} × ${i.qty} = ${fmt(i.price * i.qty)}`),
+      `─────────────────────`,
+      order.discount > 0 ? `Сумма без скидки: ${fmt(rawTotal)}` : "",
+      order.discount > 0 ? `Скидка ${order.discount}%: −${fmt(discountAmt)}` : "",
+      ``,
+      `💰 ИТОГО: ${fmt(total)}`,
+    ].filter((l) => l !== "");
+    return lines.join("\n");
+  }
+
+  function copyText() {
+    navigator.clipboard.writeText(buildText()).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function openWhatsApp() {
+    const phone = order.phone.replace(/\D/g, "");
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(buildText())}`;
+    window.open(url, "_blank");
+  }
+
+  function openTelegram() {
+    const url = `https://t.me/share/url?url=${encodeURIComponent(" ")}&text=${encodeURIComponent(buildText())}`;
+    window.open(url, "_blank");
+  }
+
+  return (
+    <>
+      <button className="send-invoice-btn" onClick={() => setOpen(true)}>
+        <Icon name="Send" size={15} />
+        Отправить счёт клиенту
+      </button>
+
+      {open && (
+        <div className="pass-overlay" onClick={() => setOpen(false)}>
+          <div className="pass-modal" style={{ width: 320 }} onClick={(e) => e.stopPropagation()}>
+            <div className="pass-title">
+              <Icon name="Send" size={16} style={{ color: "#2563eb" }} />
+              Отправить счёт
+            </div>
+
+            {/* Preview */}
+            <div className="invoice-preview">
+              {buildText().split("\n").map((l, i) => (
+                <div key={i} style={{ fontWeight: l.startsWith("💰") ? 700 : 400 }}>{l || <br />}</div>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button className="invoice-action-btn" style={{ background: "#25D366", color: "#fff" }} onClick={openWhatsApp}>
+                <Icon name="MessageCircle" size={16} />
+                Отправить в WhatsApp
+              </button>
+              <button className="invoice-action-btn" style={{ background: "#229ED9", color: "#fff" }} onClick={openTelegram}>
+                <Icon name="Send" size={16} />
+                Отправить в Telegram
+              </button>
+              <button className="invoice-action-btn" style={copied ? { background: "#16a34a", color: "#fff" } : { background: "#f3f4f6", color: "#374151" }} onClick={copyText}>
+                <Icon name={copied ? "Check" : "Copy"} size={16} />
+                {copied ? "Скопировано!" : "Скопировать текст"}
+              </button>
+            </div>
+
+            <button className="pass-cancel" style={{ marginTop: 4 }} onClick={() => setOpen(false)}>Закрыть</button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
