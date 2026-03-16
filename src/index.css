@@ -83,6 +83,21 @@
   display: flex;
   gap: 4px;
   padding: 16px 24px 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.tab-btn-wrap {
+  flex-shrink: 0;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+}
+
+.tab-btn-wrap.drag-over {
+  outline: 2px dashed #2563eb;
+  outline-offset: 2px;
+  border-radius: 999px;
 }
 
 .tab-btn {
@@ -111,6 +126,108 @@
   background: #ffffff;
   border-color: #e5e7eb;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.tab-btn.edit-mode {
+  cursor: grab;
+  border-style: dashed;
+  border-color: #d1d5db;
+}
+
+.tab-btn.edit-mode:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+/* ── Tab edit modal ─────────────────────────────────────── */
+.tab-edit-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+
+.tab-edit-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+}
+
+.tab-edit-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.tab-edit-input {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #111827;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.tab-edit-input:focus {
+  border-color: #2563eb;
+}
+
+.tab-edit-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tab-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.tab-icon-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1.5px solid #e5e7eb;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.tab-icon-opt:hover {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.tab-icon-opt.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.tab-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 /* ── Content ────────────────────────────────────────────── */

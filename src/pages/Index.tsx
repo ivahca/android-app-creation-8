@@ -1859,11 +1859,17 @@ function AssistantSection() {
 // ─── Root ─────────────────────────────────────────────────
 type Tab = "orders" | "smeta" | "price" | "assistant";
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
+const DEFAULT_TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "orders", label: "Заказы", icon: "Briefcase" },
   { id: "smeta", label: "Стоимость услуг", icon: "ClipboardList" },
   { id: "price", label: "Прайс", icon: "ListOrdered" },
   { id: "assistant", label: "Помощник", icon: "Bot" },
+];
+
+const TAB_ICON_OPTIONS = [
+  "Briefcase", "ClipboardList", "ListOrdered", "Bot", "Home", "Star", "Settings",
+  "Zap", "Heart", "Bell", "Users", "FileText", "BarChart2", "Layers", "Tag",
+  "Wrench", "Hammer", "Truck", "Calendar", "Phone", "Mail", "Map", "Shield",
 ];
 
 const EDIT_PASSWORD = "D4m0;6278@";
@@ -1875,6 +1881,15 @@ export default function Index() {
   const [showPassPrompt, setShowPassPrompt] = useState(false);
   const [passInput, setPassInput] = useState("");
   const [passError, setPassError] = useState(false);
+
+  // Tabs customization
+  const [tabs, setTabs] = useState(DEFAULT_TABS);
+  const [tabEditMode, setTabEditMode] = useState(false);
+  const [editingTab, setEditingTab] = useState<Tab | null>(null);
+  const [editTabLabel, setEditTabLabel] = useState("");
+  const [editTabIcon, setEditTabIcon] = useState("");
+  const [dragTabId, setDragTabId] = useState<Tab | null>(null);
+  const [dragOverTabId, setDragOverTabId] = useState<Tab | null>(null);
 
   // Orders state
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
@@ -1901,6 +1916,41 @@ export default function Index() {
     setSmetaItems((prev) => prev.map((i) => i.id === id ? { ...i, price } : i));
   }
 
+  function startEditTab(t: { id: Tab; label: string; icon: string }) {
+    setEditingTab(t.id);
+    setEditTabLabel(t.label);
+    setEditTabIcon(t.icon);
+  }
+
+  function saveEditTab() {
+    if (!editingTab) return;
+    setTabs((prev) => prev.map((t) => t.id === editingTab ? { ...t, label: editTabLabel, icon: editTabIcon } : t));
+    setEditingTab(null);
+  }
+
+  function handleTabDragStart(id: Tab) {
+    setDragTabId(id);
+  }
+
+  function handleTabDragOver(e: React.DragEvent, id: Tab) {
+    e.preventDefault();
+    setDragOverTabId(id);
+  }
+
+  function handleTabDrop(targetId: Tab) {
+    if (!dragTabId || dragTabId === targetId) { setDragTabId(null); setDragOverTabId(null); return; }
+    setTabs((prev) => {
+      const arr = [...prev];
+      const fromIdx = arr.findIndex((t) => t.id === dragTabId);
+      const toIdx = arr.findIndex((t) => t.id === targetId);
+      const [removed] = arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, removed);
+      return arr;
+    });
+    setDragTabId(null);
+    setDragOverTabId(null);
+  }
+
   function handleAddFromPrice() {
     setPendingPriceAdd(true);
     setTab("price");
@@ -1921,68 +1971,80 @@ export default function Index() {
           <span className="app-date">
             {new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}
           </span>
-          {tab === "price" && (
-            <>
-              <button
-                className={`gear-btn ${priceEditMode ? "active" : ""}`}
-                onClick={() => {
-                  if (priceEditMode) { setPriceEditMode(false); }
-                  else { setShowPassPrompt(true); setPassInput(""); setPassError(false); }
-                }}
-                title={priceEditMode ? "Выйти из редактирования" : "Редактировать прайс"}
-              >
-                <Icon name={priceEditMode ? "X" : "Settings2"} size={16} />
-              </button>
-
-              {showPassPrompt && (
-                <div className="pass-overlay" onClick={() => setShowPassPrompt(false)}>
-                  <div className="pass-modal" onClick={(e) => e.stopPropagation()}>
-                    <div className="pass-title">
-                      <Icon name="Lock" size={16} style={{ color: "#2563eb" }} />
-                      Введите пароль
-                    </div>
-                    <input autoFocus type="password"
-                      className={`pass-input ${passError ? "error" : ""}`}
-                      placeholder="Пароль" value={passInput}
-                      onChange={(e) => { setPassInput(e.target.value); setPassError(false); }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          if (passInput === EDIT_PASSWORD) { setPriceEditMode(true); setShowPassPrompt(false); }
-                          else { setPassError(true); setPassInput(""); }
-                        }
-                        if (e.key === "Escape") setShowPassPrompt(false);
-                      }}
-                    />
-                    {passError && <div className="pass-error">Неверный пароль</div>}
-                    <div className="pass-actions">
-                      <button className="pass-cancel" onClick={() => setShowPassPrompt(false)}>Отмена</button>
-                      <button className="pass-confirm" onClick={() => {
-                        if (passInput === EDIT_PASSWORD) { setPriceEditMode(true); setShowPassPrompt(false); }
-                        else { setPassError(true); setPassInput(""); }
-                      }}>Войти</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+          <button
+            className={`gear-btn ${tabEditMode ? "active" : ""}`}
+            onClick={() => { setTabEditMode((v) => !v); setEditingTab(null); }}
+            title={tabEditMode ? "Готово" : "Настроить вкладки"}
+          >
+            <Icon name={tabEditMode ? "Check" : "LayoutDashboard"} size={16} />
+          </button>
         </div>
       </header>
 
       <nav className="tab-nav">
-        {TABS.map((t) => (
-          <button key={t.id}
-            className={`tab-btn ${tab === t.id ? "active" : ""}`}
-            onClick={() => { setTab(t.id); if (t.id !== "orders") setActiveOrder(null); setPendingPriceAdd(false); }}
+        {tabs.map((t) => (
+          <div
+            key={t.id}
+            className={`tab-btn-wrap ${dragOverTabId === t.id && dragTabId !== t.id ? "drag-over" : ""}`}
+            draggable={tabEditMode}
+            onDragStart={() => handleTabDragStart(t.id)}
+            onDragOver={(e) => handleTabDragOver(e, t.id)}
+            onDrop={() => handleTabDrop(t.id)}
+            onDragEnd={() => { setDragTabId(null); setDragOverTabId(null); }}
           >
-            <Icon name={t.icon} size={16} />
-            <span>{t.label}</span>
-            {t.id === "smeta" && smetaItems.length > 0 && (
-              <span className="smeta-badge">{smetaItems.length}</span>
-            )}
-          </button>
+            <button
+              className={`tab-btn ${tab === t.id ? "active" : ""} ${tabEditMode ? "edit-mode" : ""}`}
+              onClick={() => {
+                if (tabEditMode) { startEditTab(t); return; }
+                setTab(t.id);
+                if (t.id !== "orders") setActiveOrder(null);
+                setPendingPriceAdd(false);
+              }}
+            >
+              {tabEditMode && <Icon name="GripVertical" size={12} style={{ color: "#9ca3af", marginRight: -2 }} />}
+              <Icon name={t.icon} size={16} />
+              <span>{t.label}</span>
+              {!tabEditMode && t.id === "smeta" && smetaItems.length > 0 && (
+                <span className="smeta-badge">{smetaItems.length}</span>
+              )}
+              {tabEditMode && <Icon name="Pencil" size={11} style={{ color: "#9ca3af", marginLeft: 2 }} />}
+            </button>
+          </div>
         ))}
       </nav>
+
+      {editingTab && (
+        <div className="tab-edit-overlay" onClick={() => setEditingTab(null)}>
+          <div className="tab-edit-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="tab-edit-title">Редактировать вкладку</div>
+            <input
+              autoFocus
+              className="tab-edit-input"
+              placeholder="Название вкладки"
+              value={editTabLabel}
+              onChange={(e) => setEditTabLabel(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveEditTab(); if (e.key === "Escape") setEditingTab(null); }}
+            />
+            <div className="tab-edit-label">Иконка</div>
+            <div className="tab-icon-grid">
+              {TAB_ICON_OPTIONS.map((ico) => (
+                <button
+                  key={ico}
+                  className={`tab-icon-opt ${editTabIcon === ico ? "active" : ""}`}
+                  onClick={() => setEditTabIcon(ico)}
+                  title={ico}
+                >
+                  <Icon name={ico} size={18} />
+                </button>
+              ))}
+            </div>
+            <div className="tab-edit-actions">
+              <button className="pass-cancel" onClick={() => setEditingTab(null)}>Отмена</button>
+              <button className="pass-confirm" onClick={saveEditTab}>Сохранить</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="app-content">
         {tab === "orders" && !activeOrder && (
