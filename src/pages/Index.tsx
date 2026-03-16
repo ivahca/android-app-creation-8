@@ -692,19 +692,32 @@ const PRICE_DATA: PriceGroup[] = [
   },
 ];
 
-function PriceSection({ onAdd }: { onAdd: (item: SmetaItem) => void }) {
+function PriceSection({ onAdd, editMode }: { onAdd: (item: SmetaItem) => void; editMode: boolean }) {
   const [search, setSearch] = useState("");
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(["rozetki"]));
   const [added, setAdded] = useState<Set<string>>(new Set());
+  const [priceData, setPriceData] = useState<PriceGroup[]>(PRICE_DATA);
+
+  // edit state
+  const [editingItem, setEditingItem] = useState<{ groupId: string; idx: number } | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editUnit, setEditUnit] = useState("");
+  const [editingGroupTitle, setEditingGroupTitle] = useState<string | null>(null);
+  const [editGroupTitle, setEditGroupTitle] = useState("");
+  const [newItemGroupId, setNewItemGroupId] = useState<string | null>(null);
+  const [newItemName, setNewItemName] = useState("");
+  const [newItemPrice, setNewItemPrice] = useState("");
+  const [newItemUnit, setNewItemUnit] = useState("");
 
   const query = search.toLowerCase().trim();
 
-  const filtered = PRICE_DATA.map((group) => ({
+  const filtered = priceData.map((group) => ({
     ...group,
     items: query
       ? group.items.filter((item) => item.name.toLowerCase().includes(query))
       : group.items,
-  })).filter((g) => g.items.length > 0);
+  })).filter((g) => g.items.length > 0 || editMode);
 
   function toggleGroup(id: string) {
     setOpenGroups((prev) => {
@@ -722,25 +735,78 @@ function PriceSection({ onAdd }: { onAdd: (item: SmetaItem) => void }) {
 
   function handleAdd(item: PriceItem, groupId: string) {
     const key = groupId + item.name;
-    const smetaItem: SmetaItem = {
-      id: uid(),
-      name: item.name,
-      unit: item.unit,
-      qty: 1,
-      price: parsePrice(item.price),
-    };
-    onAdd(smetaItem);
+    onAdd({ id: uid(), name: item.name, unit: item.unit, qty: 1, price: parsePrice(item.price) });
     setAdded((prev) => new Set(prev).add(key));
     setTimeout(() => setAdded((prev) => { const n = new Set(prev); n.delete(key); return n; }), 1500);
   }
 
-  const totalServices = PRICE_DATA.reduce((s, g) => s + g.items.length, 0);
+  // ── Edit helpers ──
+  function startEditItem(groupId: string, idx: number, item: PriceItem) {
+    setEditingItem({ groupId, idx });
+    setEditName(item.name);
+    setEditPrice(item.price);
+    setEditUnit(item.unit ?? "");
+  }
+
+  function saveEditItem() {
+    if (!editingItem) return;
+    setPriceData((prev) => prev.map((g) =>
+      g.id !== editingItem.groupId ? g : {
+        ...g,
+        items: g.items.map((it, i) =>
+          i !== editingItem.idx ? it : { name: editName, price: editPrice, unit: editUnit || undefined }
+        ),
+      }
+    ));
+    setEditingItem(null);
+  }
+
+  function deleteItem(groupId: string, idx: number) {
+    setPriceData((prev) => prev.map((g) =>
+      g.id !== groupId ? g : { ...g, items: g.items.filter((_, i) => i !== idx) }
+    ));
+  }
+
+  function deleteGroup(groupId: string) {
+    setPriceData((prev) => prev.filter((g) => g.id !== groupId));
+  }
+
+  function startEditGroupTitle(group: PriceGroup) {
+    setEditingGroupTitle(group.id);
+    setEditGroupTitle(group.title);
+  }
+
+  function saveGroupTitle(groupId: string) {
+    setPriceData((prev) => prev.map((g) => g.id === groupId ? { ...g, title: editGroupTitle } : g));
+    setEditingGroupTitle(null);
+  }
+
+  function addNewItem(groupId: string) {
+    if (!newItemName.trim()) return;
+    setPriceData((prev) => prev.map((g) =>
+      g.id !== groupId ? g : {
+        ...g,
+        items: [...g.items, { name: newItemName.trim(), price: newItemPrice.trim() || "индивидуально", unit: newItemUnit.trim() || undefined }],
+      }
+    ));
+    setNewItemName(""); setNewItemPrice(""); setNewItemUnit(""); setNewItemGroupId(null);
+  }
+
+  function addNewGroup() {
+    const id = uid();
+    setPriceData((prev) => [...prev, { id, title: "Новая категория", items: [] }]);
+    setOpenGroups((prev) => new Set(prev).add(id));
+    setEditingGroupTitle(id);
+    setEditGroupTitle("Новая категория");
+  }
+
+  const totalServices = priceData.reduce((s, g) => s + g.items.length, 0);
 
   return (
     <div className="space-y-4">
       <div className="flex gap-3">
         <div className="stat-card">
-          <span className="stat-num">{PRICE_DATA.length}</span>
+          <span className="stat-num">{priceData.length}</span>
           <span className="stat-label">Категорий</span>
         </div>
         <div className="stat-card">
@@ -749,66 +815,154 @@ function PriceSection({ onAdd }: { onAdd: (item: SmetaItem) => void }) {
         </div>
       </div>
 
-      <div className="add-row">
-        <Icon name="Search" size={15} style={{ color: "#9ca3af", flexShrink: 0 }} />
-        <input
-          className="add-input"
-          placeholder="Поиск услуги…"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            if (e.target.value.trim()) setOpenGroups(new Set(PRICE_DATA.map((g) => g.id)));
-          }}
-        />
-        {search && (
-          <button className="icon-btn" onClick={() => setSearch("")}>
-            <Icon name="X" size={14} />
-          </button>
-        )}
-      </div>
+      {!editMode && (
+        <div className="add-row">
+          <Icon name="Search" size={15} style={{ color: "#9ca3af", flexShrink: 0 }} />
+          <input
+            className="add-input"
+            placeholder="Поиск услуги…"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              if (e.target.value.trim()) setOpenGroups(new Set(priceData.map((g) => g.id)));
+            }}
+          />
+          {search && <button className="icon-btn" onClick={() => setSearch("")}><Icon name="X" size={14} /></button>}
+        </div>
+      )}
+
+      {editMode && (
+        <div className="edit-mode-banner">
+          <Icon name="Pencil" size={13} />
+          Режим редактирования — изменяйте названия, цены, добавляйте и удаляйте позиции
+        </div>
+      )}
 
       <div className="space-y-2">
         {filtered.map((group) => {
-          const isOpen = openGroups.has(group.id) || !!query;
+          const isOpen = openGroups.has(group.id) || !!query || editMode;
           return (
             <div key={group.id} className="price-group">
-              <button className="price-group-header" onClick={() => toggleGroup(group.id)}>
-                <span className="price-group-title">{group.title}</span>
+              <div className="price-group-header" style={{ cursor: editMode ? "default" : "pointer" }}
+                onClick={() => !editMode && toggleGroup(group.id)}>
+                {editMode && editingGroupTitle === group.id ? (
+                  <input
+                    autoFocus
+                    className="edit-group-input"
+                    value={editGroupTitle}
+                    onChange={(e) => setEditGroupTitle(e.target.value)}
+                    onBlur={() => saveGroupTitle(group.id)}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveGroupTitle(group.id); }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span
+                    className="price-group-title"
+                    style={editMode ? { cursor: "text", flex: 1 } : {}}
+                    onClick={editMode ? (e) => { e.stopPropagation(); startEditGroupTitle(group); } : undefined}
+                  >
+                    {group.title}
+                    {editMode && <Icon name="Pencil" size={11} style={{ marginLeft: 6, color: "#9ca3af", display: "inline" }} />}
+                  </span>
+                )}
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="price-count">{group.items.length}</span>
-                  <Icon name={isOpen ? "ChevronUp" : "ChevronDown"} size={14} style={{ color: "#9ca3af" }} />
+                  {editMode ? (
+                    <button className="icon-btn" style={{ color: "#f87171" }}
+                      onClick={(e) => { e.stopPropagation(); deleteGroup(group.id); }}
+                      title="Удалить категорию">
+                      <Icon name="Trash2" size={13} />
+                    </button>
+                  ) : (
+                    <Icon name={isOpen ? "ChevronUp" : "ChevronDown"} size={14} style={{ color: "#9ca3af" }} />
+                  )}
                 </div>
-              </button>
+              </div>
+
               {isOpen && (
                 <div className="price-items">
                   {group.items.map((item, i) => {
                     const key = group.id + item.name;
                     const justAdded = added.has(key);
+                    const isEditing = editingItem?.groupId === group.id && editingItem?.idx === i;
                     return (
-                      <div key={i} className="price-row">
-                        <span className="price-name">{item.name}</span>
-                        <div className="price-right">
-                          {item.unit && <span className="price-unit">{item.unit}</span>}
-                          <span className="price-value">{item.price}</span>
-                          <button
-                            className="price-add-btn"
-                            style={justAdded ? { background: "#16a34a", color: "#fff" } : {}}
-                            onClick={() => handleAdd(item, group.id)}
-                            title="Добавить в смету"
-                          >
-                            <Icon name={justAdded ? "Check" : "Plus"} size={12} />
-                          </button>
-                        </div>
+                      <div key={i} className="price-row" style={editMode ? { background: "#fafafa" } : {}}>
+                        {editMode && isEditing ? (
+                          <div className="edit-item-form">
+                            <input className="edit-field edit-field-name" placeholder="Название" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                            <div className="edit-field-row">
+                              <input className="edit-field edit-field-unit" placeholder="Ед. (1 м)" value={editUnit} onChange={(e) => setEditUnit(e.target.value)} />
+                              <input className="edit-field edit-field-price" placeholder="Цена" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
+                              <button className="add-btn" style={{ width: 28, height: 28 }} onClick={saveEditItem}><Icon name="Check" size={13} /></button>
+                              <button className="icon-btn" onClick={() => setEditingItem(null)}><Icon name="X" size={13} /></button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="price-name">{item.name}</span>
+                            <div className="price-right">
+                              {item.unit && <span className="price-unit">{item.unit}</span>}
+                              <span className="price-value">{item.price}</span>
+                              {editMode ? (
+                                <div className="flex gap-1">
+                                  <button className="icon-btn" onClick={() => startEditItem(group.id, i, item)} title="Редактировать">
+                                    <Icon name="Pencil" size={12} />
+                                  </button>
+                                  <button className="icon-btn" style={{ color: "#f87171" }} onClick={() => deleteItem(group.id, i)} title="Удалить">
+                                    <Icon name="Trash2" size={12} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="price-add-btn"
+                                  style={justAdded ? { background: "#16a34a", color: "#fff" } : {}}
+                                  onClick={() => handleAdd(item, group.id)}
+                                  title="Добавить в смету"
+                                >
+                                  <Icon name={justAdded ? "Check" : "Plus"} size={12} />
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
+
+                  {/* Add new item row */}
+                  {editMode && (
+                    newItemGroupId === group.id ? (
+                      <div className="price-row" style={{ background: "#f0f9ff" }}>
+                        <div className="edit-item-form">
+                          <input autoFocus className="edit-field edit-field-name" placeholder="Название услуги" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addNewItem(group.id)} />
+                          <div className="edit-field-row">
+                            <input className="edit-field edit-field-unit" placeholder="Ед. (1 м)" value={newItemUnit} onChange={(e) => setNewItemUnit(e.target.value)} />
+                            <input className="edit-field edit-field-price" placeholder="Цена" value={newItemPrice} onChange={(e) => setNewItemPrice(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addNewItem(group.id)} />
+                            <button className="add-btn" style={{ width: 28, height: 28, background: "#2563eb" }} onClick={() => addNewItem(group.id)}><Icon name="Check" size={13} /></button>
+                            <button className="icon-btn" onClick={() => { setNewItemGroupId(null); setNewItemName(""); setNewItemPrice(""); setNewItemUnit(""); }}><Icon name="X" size={13} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="price-add-row-btn" onClick={() => { setNewItemGroupId(group.id); setOpenGroups((p) => new Set(p).add(group.id)); }}>
+                        <Icon name="Plus" size={13} />
+                        Добавить позицию
+                      </button>
+                    )
+                  )}
                 </div>
               )}
             </div>
           );
         })}
-        {filtered.length === 0 && (
+        {filtered.length === 0 && !editMode && (
           <div className="text-center py-10 text-gray-400 text-sm">Ничего не найдено</div>
+        )}
+        {editMode && (
+          <button className="add-category-btn" onClick={addNewGroup}>
+            <Icon name="FolderPlus" size={15} />
+            Добавить категорию
+          </button>
         )}
       </div>
     </div>
@@ -826,6 +980,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 export default function Index() {
   const [tab, setTab] = useState<Tab>("smeta");
   const [smetaItems, setSmetaItems] = useState<SmetaItem[]>([]);
+  const [priceEditMode, setPriceEditMode] = useState(false);
 
   function addToSmeta(item: SmetaItem) {
     setSmetaItems((prev) => [{ ...item, id: uid() }, ...prev]);
@@ -850,9 +1005,20 @@ export default function Index() {
           <Icon name="LayoutDashboard" size={20} style={{ color: "#2563eb" }} />
           <span>Мой планировщик</span>
         </div>
-        <span className="app-date">
-          {new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="app-date">
+            {new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}
+          </span>
+          {tab === "price" && (
+            <button
+              className={`gear-btn ${priceEditMode ? "active" : ""}`}
+              onClick={() => setPriceEditMode((v) => !v)}
+              title={priceEditMode ? "Выйти из редактирования" : "Редактировать прайс"}
+            >
+              <Icon name={priceEditMode ? "X" : "Settings2"} size={16} />
+            </button>
+          )}
+        </div>
       </header>
 
       <nav className="tab-nav">
@@ -880,7 +1046,7 @@ export default function Index() {
             onPriceChange={changePrice}
           />
         )}
-        {tab === "price" && <PriceSection onAdd={(item) => { addToSmeta(item); setTab("smeta"); }} />}
+        {tab === "price" && <PriceSection onAdd={(item) => { addToSmeta(item); setTab("smeta"); }} editMode={priceEditMode} />}
       </main>
     </div>
   );
