@@ -251,6 +251,40 @@
   border-color: #fca5a5;
 }
 
+/* ── Export buttons ─────────────────────────────────────── */
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+
+.export-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.export-btn-green {
+  color: #16a34a;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.export-btn-green:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
 /* ── Content ────────────────────────────────────────────── */
 .app-content {
   padding: 24px;

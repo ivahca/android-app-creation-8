@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 // ─── Types ───────────────────────────────────────────────
 type Category = { id: string; name: string; color: string };
@@ -696,7 +699,12 @@ function PriceSection({ onAdd, editMode }: { onAdd: (item: SmetaItem) => void; e
   const [search, setSearch] = useState("");
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(["rozetki"]));
   const [added, setAdded] = useState<Set<string>>(new Set());
-  const [priceData, setPriceData] = useState<PriceGroup[]>(PRICE_DATA);
+  const [priceData, setPriceData] = useState<PriceGroup[]>(() => {
+    try {
+      const saved = localStorage.getItem("priceData");
+      return saved ? JSON.parse(saved) : PRICE_DATA;
+    } catch { return PRICE_DATA; }
+  });
 
   // edit state
   const [editingItem, setEditingItem] = useState<{ groupId: string; idx: number } | null>(null);
@@ -709,6 +717,50 @@ function PriceSection({ onAdd, editMode }: { onAdd: (item: SmetaItem) => void; e
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("");
+
+  useEffect(() => {
+    localStorage.setItem("priceData", JSON.stringify(priceData));
+  }, [priceData]);
+
+  function exportPDF() {
+    const doc = new jsPDF();
+    doc.setFont("helvetica");
+    doc.setFontSize(16);
+    doc.text("Прайс-лист", 14, 16);
+    doc.setFontSize(10);
+    doc.text(new Date().toLocaleDateString("ru-RU"), 14, 23);
+    let y = 30;
+    priceData.forEach((group) => {
+      if (group.items.length === 0) return;
+      autoTable(doc, {
+        startY: y,
+        head: [[group.title, "Ед.", "Цена"]],
+        body: group.items.map((it) => [it.name, it.unit ?? "", it.price]),
+        headStyles: { fillColor: [37, 99, 235], fontSize: 9, fontStyle: "bold" },
+        bodyStyles: { fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 110 }, 1: { cellWidth: 20 }, 2: { cellWidth: 45 } },
+        margin: { left: 14, right: 14 },
+        theme: "grid",
+      });
+      y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      if (y > 270) { doc.addPage(); y = 14; }
+    });
+    doc.save("прайс-лист.pdf");
+  }
+
+  function exportExcel() {
+    const wb = XLSX.utils.book_new();
+    const rows: (string | number)[][] = [["Категория", "Услуга", "Единица", "Цена"]];
+    priceData.forEach((group) => {
+      group.items.forEach((it) => {
+        rows.push([group.title, it.name, it.unit ?? "", it.price]);
+      });
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{ wch: 35 }, { wch: 55 }, { wch: 12 }, { wch: 18 }];
+    XLSX.utils.book_append_sheet(wb, ws, "Прайс");
+    XLSX.writeFile(wb, "прайс-лист.xlsx");
+  }
 
   const query = search.toLowerCase().trim();
 
@@ -812,6 +864,14 @@ function PriceSection({ onAdd, editMode }: { onAdd: (item: SmetaItem) => void; e
         <div className="stat-card">
           <span className="stat-num" style={{ color: "#2563eb" }}>{totalServices}</span>
           <span className="stat-label">Услуг в прайсе</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+          <button className="export-btn" onClick={exportPDF}>
+            <Icon name="FileText" size={14} /> PDF
+          </button>
+          <button className="export-btn export-btn-green" onClick={exportExcel}>
+            <Icon name="Table" size={14} /> Excel
+          </button>
         </div>
       </div>
 
