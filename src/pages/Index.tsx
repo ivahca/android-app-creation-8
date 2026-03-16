@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 
 // ─── Types ───────────────────────────────────────────────
@@ -1742,13 +1742,110 @@ function SendInvoiceButton({ order }: { order: Order }) {
   );
 }
 
+// ─── Assistant Chat ────────────────────────────────────────
+const ASSISTANT_URL = "https://functions.poehali.dev/c956628b-6612-473b-aa40-ac10e033d8f2";
+
+type ChatMessage = { role: "user" | "assistant"; content: string };
+
+function AssistantSection() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || loading) return;
+    const userMsg: ChatMessage = { role: "user", content: text };
+    const next = [...messages, userMsg];
+    setMessages(next);
+    setInput("");
+    setLoading(true);
+    try {
+      const res = await fetch(ASSISTANT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: next }),
+      });
+      const data = await res.json();
+      setMessages([...next, { role: "assistant", content: data.reply }]);
+    } catch {
+      setMessages([...next, { role: "assistant", content: "Ошибка соединения. Попробуй ещё раз." }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#f9fafb" }}>
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        {messages.length === 0 && (
+          <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 14, marginTop: 40 }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🤖</div>
+            <div style={{ fontWeight: 600, color: "#374151", marginBottom: 6 }}>Помощник работника</div>
+            <div>Помогу составить текст клиенту,</div>
+            <div>ответить на вопрос или рассчитать стоимость.</div>
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+            <div style={{
+              maxWidth: "80%", padding: "10px 14px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+              background: m.role === "user" ? "#2563eb" : "#fff",
+              color: m.role === "user" ? "#fff" : "#111827",
+              fontSize: 14, lineHeight: 1.5,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              whiteSpace: "pre-wrap",
+            }}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <div style={{ background: "#fff", borderRadius: "16px 16px 16px 4px", padding: "10px 16px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", color: "#9ca3af", fontSize: 14 }}>
+              Печатаю...
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: "12px 16px", borderTop: "1px solid #e5e7eb", background: "#fff", display: "flex", gap: 8 }}>
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder="Напиши вопрос..."
+          rows={1}
+          style={{ flex: 1, resize: "none", border: "1px solid #d1d5db", borderRadius: 12, padding: "10px 14px", fontSize: 14, outline: "none", fontFamily: "inherit", lineHeight: 1.4 }}
+        />
+        <button
+          onClick={send}
+          disabled={!input.trim() || loading}
+          style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, opacity: (!input.trim() || loading) ? 0.5 : 1 }}
+        >
+          <Icon name="Send" size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Root ─────────────────────────────────────────────────
-type Tab = "orders" | "smeta" | "price";
+type Tab = "orders" | "smeta" | "price" | "assistant";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "orders", label: "Заказы", icon: "Briefcase" },
   { id: "smeta", label: "Стоимость услуг", icon: "ClipboardList" },
   { id: "price", label: "Прайс", icon: "ListOrdered" },
+  { id: "assistant", label: "Помощник", icon: "Bot" },
 ];
 
 const EDIT_PASSWORD = "D4m0;6278@";
@@ -1918,6 +2015,7 @@ export default function Index() {
             )}
           </div>
         )}
+        {tab === "assistant" && <AssistantSection />}
       </main>
     </div>
   );
