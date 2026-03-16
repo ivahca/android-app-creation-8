@@ -1751,12 +1751,6 @@ export default function Index() {
 
   function handlePriceAdd(item: SmetaItem) {
     addToSmeta(item);
-    if (pendingPriceAdd && activeOrder) {
-      setPendingPriceAdd(false);
-      setTab("orders");
-    } else {
-      setTab("smeta");
-    }
   }
 
   return (
