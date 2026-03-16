@@ -227,7 +227,28 @@
 .tab-edit-actions {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
+  align-items: center;
+}
+
+.tab-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #fee2e2;
+  background: #fff5f5;
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.12s;
+}
+
+.tab-delete-btn:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
 }
 
 /* ── Content ────────────────────────────────────────────── */

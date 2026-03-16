@@ -1885,6 +1885,9 @@ export default function Index() {
   // Tabs customization
   const [tabs, setTabs] = useState(DEFAULT_TABS);
   const [tabEditMode, setTabEditMode] = useState(false);
+  const [showTabPassPrompt, setShowTabPassPrompt] = useState(false);
+  const [tabPassInput, setTabPassInput] = useState("");
+  const [tabPassError, setTabPassError] = useState(false);
   const [editingTab, setEditingTab] = useState<Tab | null>(null);
   const [editTabLabel, setEditTabLabel] = useState("");
   const [editTabIcon, setEditTabIcon] = useState("");
@@ -1926,6 +1929,28 @@ export default function Index() {
     if (!editingTab) return;
     setTabs((prev) => prev.map((t) => t.id === editingTab ? { ...t, label: editTabLabel, icon: editTabIcon } : t));
     setEditingTab(null);
+  }
+
+  function deleteTab(id: Tab) {
+    setTabs((prev) => prev.filter((t) => t.id !== id));
+    setEditingTab(null);
+    if (tab === id) setTab(tabs.find((t) => t.id !== id)?.id ?? "orders");
+  }
+
+  function enterTabEditMode() {
+    setShowTabPassPrompt(true);
+    setTabPassInput("");
+    setTabPassError(false);
+  }
+
+  function confirmTabPass() {
+    if (tabPassInput === EDIT_PASSWORD) {
+      setTabEditMode(true);
+      setShowTabPassPrompt(false);
+    } else {
+      setTabPassError(true);
+      setTabPassInput("");
+    }
   }
 
   function handleTabDragStart(id: Tab) {
@@ -1973,11 +1998,39 @@ export default function Index() {
           </span>
           <button
             className={`gear-btn ${tabEditMode ? "active" : ""}`}
-            onClick={() => { setTabEditMode((v) => !v); setEditingTab(null); }}
+            onClick={() => {
+              if (tabEditMode) { setTabEditMode(false); setEditingTab(null); }
+              else { enterTabEditMode(); }
+            }}
             title={tabEditMode ? "Готово" : "Настроить вкладки"}
           >
             <Icon name={tabEditMode ? "Check" : "LayoutDashboard"} size={16} />
           </button>
+
+          {showTabPassPrompt && (
+            <div className="pass-overlay" onClick={() => setShowTabPassPrompt(false)}>
+              <div className="pass-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="pass-title">
+                  <Icon name="Lock" size={16} style={{ color: "#2563eb" }} />
+                  Введите пароль
+                </div>
+                <input autoFocus type="password"
+                  className={`pass-input ${tabPassError ? "error" : ""}`}
+                  placeholder="Пароль" value={tabPassInput}
+                  onChange={(e) => { setTabPassInput(e.target.value); setTabPassError(false); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") confirmTabPass();
+                    if (e.key === "Escape") setShowTabPassPrompt(false);
+                  }}
+                />
+                {tabPassError && <div className="pass-error">Неверный пароль</div>}
+                <div className="pass-actions">
+                  <button className="pass-cancel" onClick={() => setShowTabPassPrompt(false)}>Отмена</button>
+                  <button className="pass-confirm" onClick={confirmTabPass}>Войти</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -2039,6 +2092,15 @@ export default function Index() {
               ))}
             </div>
             <div className="tab-edit-actions">
+              <button
+                className="tab-delete-btn"
+                onClick={() => editingTab && deleteTab(editingTab)}
+                title="Удалить вкладку"
+              >
+                <Icon name="Trash2" size={14} />
+                Удалить
+              </button>
+              <div style={{ flex: 1 }} />
               <button className="pass-cancel" onClick={() => setEditingTab(null)}>Отмена</button>
               <button className="pass-confirm" onClick={saveEditTab}>Сохранить</button>
             </div>
